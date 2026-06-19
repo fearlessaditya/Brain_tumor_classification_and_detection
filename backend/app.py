@@ -10,8 +10,6 @@ import numpy as np
 import cv2
 import os
 from flask import send_from_directory
-from keras.models import load_model
-from tensorflow.keras.applications.efficientnet import preprocess_input
 
 app = Flask(__name__)
 CORS(app)
@@ -66,7 +64,6 @@ model, unet_model = load_pytorch_model()
 
 
 # Load Batch Classification Model
-batch_model = load_model("model/brain_tumor_model.h5",compile=False)
 
 
 transform = transforms.Compose([
@@ -136,47 +133,6 @@ def predict():
     })
 
 
-@app.route("/batch_predict", methods=["POST"])
-def batch_predict():
-
-    files = request.files.getlist("images")
-
-    if len(files) == 0:
-        return jsonify({"error": "No images uploaded"}), 400
-
-    results = []
-
-    for file in files:
-
-        image = Image.open(file).convert("RGB")
-
-        image = image.resize((300, 300))
-
-        img_array = np.array(image, dtype=np.float32)
-
-        # EfficientNet preprocessing
-        img_array = preprocess_input(img_array)
-
-        # Add batch dimension
-        img_array = np.expand_dims(img_array, axis=0)
-
-        prediction = batch_model.predict(img_array, verbose=0)
-
-        confidence = float(prediction[0][0])
-
-        if confidence > 0.5:
-            predicted_class = "tumor"
-        else:
-            predicted_class = "notumor"
-
-        results.append({
-            "filename": file.filename,
-            "predicted_class": predicted_class
-        })
-
-    return jsonify({
-        "results": results
-    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
